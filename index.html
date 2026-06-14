@@ -187,18 +187,37 @@
       transition: background 0.2s;
     }
     .item-name {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 1.1rem;
+      background: transparent;
+      border: none;
+      outline: none;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: background 0.2s;
+      white-space: normal;
+      word-break: break-word;
+      overflow: visible;
+      text-overflow: clip;
       cursor: text;
+      flex: 1;
+      min-width: 0;
     }
+
     .item-price {
+      font-size: 1.1rem;
       font-weight: bold;
       color: #007aff;
       margin-left: 10px;
       white-space: nowrap;
+      background: transparent;
+      border: none;
+      outline: none;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: background 0.2s;
       cursor: text;
-    }
+      flex-shrink: 0;
+    }  
     .editing {
       background: rgba(0,122,255,0.08);
       box-shadow: 0 0 0 2px #007aff;
