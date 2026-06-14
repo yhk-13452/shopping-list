@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>购物清单</title>
+  <link rel="manifest" href="/shopping-list/manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/shopping-list/sw.js');
+    }
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: #111;
+      margin: 0;
+    }
+    #sort-btn {
+      background: none;
+      border: none;
+      font-size: 1.8rem;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 8px;
+      transition: background 0.2s;
+      color: #007aff;
+    }
+    #sort-btn:active {
+      background: rgba(0,122,255,0.1);
+    }
+
+    .sort-menu {
+      display: none;
+      position: absolute;
+      right: 20px;
+      top: 70px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      z-index: 100;
+      overflow: hidden;
+      min-width: 180px;
+    }
+    .sort-menu.show {
+      display: block;
+    }
+    .sort-menu button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 14px 20px;
+      border: none;
+      background: none;
+      font-size: 1rem;
+      color: #333;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .sort-menu button:active {
+      background: #f0f0f0;
+    }
+    .sort-menu button.active {
+      color: #007aff;
+      font-weight: bold;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .input-group input {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      font-size: 1rem;
+    }
+    .input-group input:focus {
+      outline: none;
+      border-color: #007aff;
+    }
+    #price-input {
+      max-width: 120px;
+    }
+    .input-group button {
+      background: #007aff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.2s;
+    }
+    .input-group button:active {
+      background: #005bb5;
+    }
+
+    .list {
+      flex: 1;
+      list-style: none;
+    }
+    .list-item {
+      display: flex;
+      align-items: center;
+      background: white;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      transition: background 0.2s;
+    }
+    .list-item.bought {
+      opacity: 0.6;
+    }
+    .list-item.bought .item-name {
+      text-decoration: line-through;
+      color: #999;
+    }
+    .checkbox {
+      width: 22px;
+      height: 22px;
+      border: 2px solid #ccc;
+      border-radius: 50%;
+      margin-right: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .list-item.bought .checkbox {
+      background: #34c759;
+      border-color: #34c759;
+    }
+    .list-item.bought .checkbox::after {
+      content: "✓";
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .item-info {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-width: 0;
+    }
+    .item-name, .item-price {
+      font-size: 1.1rem;
+      background: transparent;
+      border: none;
+      outline: none;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .item-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: text;
+    }
+    .item-price {
+      font-weight: bold;
+      color: #007aff;
+      margin-left: 10px;
+      white-space: nowrap;
+      cursor: text;
+    }
+    .editing {
+      background: rgba(0,122,255,0.08);
+      box-shadow: 0 0 0 2px #007aff;
+      border-radius: 4px;
+    }
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #ff3b30;
+      font-size: 1.3rem;
+      padding: 0 0 0 12px;
+      cursor: pointer;
+      touch-action: manipulation;
+      flex-shrink: 0;
+    }
+
+    .footer {
+      margin-top: 20px;
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .stats {
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .stats span {
+      font-weight: bold;
+      color: #007aff;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .actions button {
+      background: #ff3b30;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.2s;
+      flex: 1;
+      min-width: 70px;
+    }
+    .actions button:active {
+      background: #cc2f28;
+    }
+    .actions button.secondary {
+      background: #8e8e93;
+    }
+    .actions button.secondary:active {
+      background: #6d6d72;
+    }
+    .actions button.export-btn {
+      background: #34c759;
+    }
+    .actions button.export-btn:active {
+      background: #2aa84e;
+    }
+    .actions button.import-btn {
+      background: #007aff;
+    }
+    .actions button.import-btn:active {
+      background: #005bb5;
+    }
+    #import-file {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🛒 购物清单</h1>
+    <button id="sort-btn" title="排序">⇅</button>
+  </div>
+
+  <div class="sort-menu" id="sort-menu">
+    <button data-sort="default">🕒 默认（最新在前）</button>
+    <button data-sort="price-asc">💰 价格从低到高</button>
+    <button data-sort="price-desc">💸 价格从高到低</button>
+    <button data-sort="name-asc">🔤 名称 A → Z</button>
+    <button data-sort="name-desc">🔤 名称 Z → A</button>
+    <button data-sort="unbought-first">✅ 未购的排前面</button>
+  </div>
+
+  <div class="input-group">
+    <input type="text" id="name-input" placeholder="物品名称" maxlength="80">
+    <input type="number" id="price-input" placeholder="价格" min="0" step="0.01" inputmode="decimal">
+    <button id="add-btn">添加</button>
+  </div>
+
+  <ul class="list" id="list"></ul>
+
+  <div class="footer">
+    <div class="stats">
+      <span>总计：<strong id="total">¥0.00</strong></span>
+      <span>已购：<strong id="bought-total">¥0.00</strong></span>
+      <span>剩余 <strong id="remaining">0</strong> 件</span>
+    </div>
+    <div class="actions">
+      <button id="export-btn" class="export-btn">📤 导出</button>
+      <button id="import-btn" class="import-btn">📥 导入</button>
+      <button id="clear-bought" class="secondary">清空已购</button>
+      <button id="clear-all">全部清空</button>
+    </div>
+  </div>
+
+  <input type="file" id="import-file" accept=".json,application/json">
+
+  <script>
+    (function() {
+      const STORAGE_KEY = 'shopping_list_items';
+      const SORT_KEY = 'shopping_list_sort';
+
+      let items = [];
+      let currentSort = localStorage.getItem(SORT_KEY) || 'default';
+
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) items = JSON.parse(saved);
+      } catch (e) {
+        items = [];
+      }
+
+      // 补时间戳
+      const now = Date.now();
+      let needsSave = false;
+      items.forEach(item => {
+        if (!item.created) {
+          item.created = now;
+          needsSave = true;
+        }
+      });
+      if (needsSave) save();
+
+      const nameInput = document.getElementById('name-input');
+      const priceInput = document.getElementById('price-input');
+      const addBtn = document.getElementById('add-btn');
+      const listEl = document.getElementById('list');
+      const totalEl = document.getElementById('total');
+      const boughtTotalEl = document.getElementById('bought-total');
+      const remainingEl = document.getElementById('remaining');
+      const clearBoughtBtn = document.getElementById('clear-bought');
+      const clearAllBtn = document.getElementById('clear-all');
+      const sortBtn = document.getElementById('sort-btn');
+      const sortMenu = document.getElementById('sort-menu');
+      const exportBtn = document.getElementById('export-btn');
+      const importBtn = document.getElementById('import-btn');
+      const importFile = document.getElementById('import-file');
+
+      // 排序逻辑
+      sortBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sortMenu.classList.toggle('show');
+      });
+      document.addEventListener('click', () => {
+        sortMenu.classList.remove('show');
+      });
+      sortMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      sortMenu.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentSort = btn.dataset.sort;
+          localStorage.setItem(SORT_KEY, currentSort);
+          sortMenu.classList.remove('show');
+          updateActiveSort();
+          render();
+        });
+      });
+      function updateActiveSort() {
+        sortMenu.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        const active = sortMenu.querySelector(`[data-sort="${currentSort}"]`);
+        if (active) active.classList.add('active');
+      }
+      updateActiveSort();
+
+      function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      }
+
+      function sortItems(arr) {
+        const copy = [...arr];
+        switch (currentSort) {
+          case 'price-asc': return copy.sort((a, b) => (parseFloat(a.price)||0) - (parseFloat(b.price)||0));
+          case 'price-desc': return copy.sort((a, b) => (parseFloat(b.price)||0) - (parseFloat(a.price)||0));
+          case 'name-asc': return copy.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+          case 'name-desc': return copy.sort((a, b) => b.name.localeCompare(a.name, 'zh'));
+          case 'unbought-first': return copy.sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
+          default: return copy.sort((a, b) => (b.created || 0) - (a.created || 0));
+        }
+      }
+
+      function render() {
+        const sorted = sortItems(items);
+        listEl.innerHTML = '';
+        let total = 0;
+        let boughtTotal = 0;
+        let remaining = 0;
+
+        sorted.forEach((item) => {
+          const price = parseFloat(item.price) || 0;
+          total += price;
+          if (item.bought) {
+            boughtTotal += price;
+          } else {
+            remaining++;
+          }
+
+          const li = document.createElement('li');
+          li.className = 'list-item' + (item.bought ? ' bought' : '');
+
+          const checkbox = document.createElement('div');
+          checkbox.className = 'checkbox';
+          checkbox.addEventListener('click', (e) => {
+            e.stopPropagation();
+            item.bought = !item.bought;
+            save();
+            render();
+          });
+
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'item-info';
+
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'item-name';
+          nameSpan.textContent = item.name;
+          nameSpan.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (nameSpan.querySelector('input')) return;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = item.name;
+            input.className = 'item-name editing';
+            input.style.width = (nameSpan.offsetWidth + 20) + 'px';
+            nameSpan.replaceWith(input);
+            input.focus();
+            input.select();
+            const saveEdit = () => {
+              if (input.parentNode) {
+                const newName = input.value.trim();
+                if (newName) item.name = newName;
+                save();
+                render();
+              }
+            };
+            input.addEventListener('blur', saveEdit);
+            input.addEventListener('keypress', (e) => {
+              if (e.key === 'Enter') input.blur();
+            });
+          });
+
+          const priceSpan = document.createElement('span');
+          priceSpan.className = 'item-price';
+          priceSpan.textContent = `¥${price.toFixed(2)}`;
+          priceSpan.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (priceSpan.querySelector('input')) return;
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.value = item.price;
+            input.className = 'item-price editing';
+            input.style.width = (priceSpan.offsetWidth + 20) + 'px';
+            priceSpan.replaceWith(input);
+            input.focus();
+            input.select();
+            const saveEdit = () => {
+              if (input.parentNode) {
+                const newPrice = parseFloat(input.value);
+                if (!isNaN(newPrice) && newPrice >= 0) item.price = newPrice;
+                save();
+                render();
+              }
+            };
+            input.addEventListener('blur', saveEdit);
+            input.addEventListener('keypress', (e) => {
+              if (e.key === 'Enter') input.blur();
+            });
+          });
+
+          infoDiv.appendChild(nameSpan);
+          infoDiv.appendChild(priceSpan);
+
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'delete-btn';
+          deleteBtn.textContent = '×';
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = items.indexOf(item);
+            if (idx > -1) items.splice(idx, 1);
+            save();
+            render();
+          });
+
+          li.appendChild(checkbox);
+          li.appendChild(infoDiv);
+          li.appendChild(deleteBtn);
+          listEl.appendChild(li);
+        });
+
+        totalEl.textContent = `¥${total.toFixed(2)}`;
+        boughtTotalEl.textContent = `¥${boughtTotal.toFixed(2)}`;
+        remainingEl.textContent = remaining;
+      }
+
+      function addItem() {
+        const name = nameInput.value.trim();
+        const price = parseFloat(priceInput.value);
+        if (!name) {
+          alert('请输入物品名称');
+          return;
+        }
+        if (isNaN(price) || price < 0) {
+          alert('请输入有效的价格');
+          return;
+        }
+        items.push({ name, price: price, bought: false, created: Date.now() });
+        save();
+        render();
+        nameInput.value = '';
+        priceInput.value = '';
+        nameInput.focus();
+      }
+
+      addBtn.addEventListener('click', addItem);
+      nameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addItem();
+      });
+      priceInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addItem();
+      });
+
+      clearBoughtBtn.addEventListener('click', () => {
+        items = items.filter(item => !item.bought);
+        save();
+        render();
+      });
+
+      clearAllBtn.addEventListener('click', () => {
+        if (confirm('确定要清空全部物品吗？')) {
+          items = [];
+          save();
+          render();
+        }
+      });
+
+      // 导出功能
+      exportBtn.addEventListener('click', () => {
+        const dataStr = JSON.stringify(items, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `shopping-list-${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
+      // 导入功能
+      importBtn.addEventListener('click', () => {
+        importFile.click();
+      });
+
+      importFile.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const imported = JSON.parse(e.target.result);
+            if (!Array.isArray(imported)) {
+              throw new Error('格式错误：必须是数组');
+            }
+            // 验证每个项的基本结构
+            imported.forEach(item => {
+              if (typeof item.name !== 'string' || typeof item.price !== 'number') {
+                throw new Error('数据项缺少 name 或 price 字段');
+              }
+            });
+
+            if (confirm(`即将导入 ${imported.length} 件物品，会替换当前清单。确定吗？`)) {
+              // 补时间戳（如果缺失）
+              const now = Date.now();
+              items = imported.map(item => ({
+                name: item.name,
+                price: item.price,
+                bought: !!item.bought,
+                created: item.created || now
+              }));
+              save();
+              render();
+            }
+          } catch (error) {
+            alert('导入失败：文件格式不正确。\n' + error.message);
+          }
+          // 重置文件选择器，允许重复导入同一文件
+          importFile.value = '';
+        };
+        reader.readAsText(file);
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
